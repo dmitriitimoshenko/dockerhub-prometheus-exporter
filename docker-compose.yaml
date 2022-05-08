@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  web:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: timoshenko/prometheus_exporter:latest
+    ports:
+      - "2113:2113"
+    networks:
+      - bridge
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+networks:
+  bridge:
+    driver: bridge
