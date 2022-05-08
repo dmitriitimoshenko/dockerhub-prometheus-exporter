@@ -1,5 +1,3 @@
-// TODO: implement the exporter code here
-
 package main
 
 import (
@@ -15,7 +13,7 @@ import (
 	"time"
 )
 
-type ResultsTemp struct {
+type RepoResults struct {
 	User      string `json:"user"`
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
@@ -28,38 +26,33 @@ type RepoList struct {
 	Count    int `json:"count"`
 	Next     int `json:"next"`
 	Previous int `json:"previous"`
-	Results  []struct {
-		User      string `json:"user"`
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		Status    int    `json:"status"`
-		StarCount int    `json:"star_count"`
-		PullCount int    `json:"pull_count"`
-	}
+	Results  []RepoResults
 }
 
-var rl RepoList
-var temp ResultsTemp
+var repolist RepoList
+var repores RepoResults
 
-// helper: fetches JSON response from URL and parses that into a given interface
 func getJson(url string, target interface{}) error {
 	var myClient = &http.Client{Timeout: 20 * time.Second}
 	r, err := myClient.Get(url)
 	if err != nil {
-		fmt.Println("ERROR: getJson")
+		fmt.Println("ERROR: in getJson function")
 		return err
 	}
 	defer r.Body.Close()
 
 	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println("ERROR: in getJson function")
+		return err
+	}
 
-	json.Unmarshal(body, &rl)
-	fmt.Println(rl)
+	json.Unmarshal(body, &repolist)
+	fmt.Println(repolist)
 
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
-// helper: gets environment value with a fallback to a default one
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if len(value) == 0 {
@@ -72,9 +65,9 @@ func recordMetrics() {
 	go func() {
 		for {
 			getJson("https://hub.docker.com/v2/repositories/"+getEnv("DOCKERHUB_ORGANIZATION", "github")+"/?page_size=25&page=1", nil)
-			for i := 0; i < len(rl.Results); i++ {
-				temp = rl.Results[i]
-				dockerImagePulls.WithLabelValues(temp.Name, temp.User).Set(float64(temp.PullCount))
+			for i := 0; i < len(repolist.Results); i++ {
+				repores = repolist.Results[i]
+				dockerImagePulls.WithLabelValues(repores.Name, repores.User).Set(float64(repores.PullCount))
 			}
 
 			time.Sleep(30 * time.Second)
